@@ -28,25 +28,23 @@ alpha = 0.5
 
 action_space = list(range(env.action_space.n))
 
-def evaluate_cummulative_reward(env, num_episodes):
+
+def evaluate_everage_cummulative_reward(env, num_episodes):
+    rewards = [evaluate_cummulative_reward(env) for i in range(num_episodes)]
+    return sum(rewards) / len(rewards)
+
+
+def evaluate_cummulative_reward(env):
     state = env.reset()
-    cumulative_rewards = []
     g = 0
     step = 0
-    for i in range(num_episodes):
-        # cumulative reward
+    done = False
+    while not done:
         action = best_action(state)
-        next_state, reward, done, _ = env.step(action)
+        state, reward, done, _ = env.step(action)
         g += reward * gamma ** step
-        if done:
-            state = env.reset()
-            step = 0
-            cumulative_rewards.append(g)
-            g = 0
-        else:
-            step += 1
-
-    return sum(cumulative_rewards) / len(cumulative_rewards)
+        step += 1
+    return g
 
 
 
@@ -57,8 +55,8 @@ class DiscretizedObservationWrapper(gym.ObservationWrapper):
         super().__init__(env)
         assert isinstance(env.observation_space, Box)
 
-        low = self.observation_space.low if low is None else low
-        high = self.observation_space.high if high is None else high
+        low = self.observation_space.low
+        high = self.observation_space.high
 
         self.n_bins = n_bins
         self.val_bins = [np.linspace(l, h, n_bins + 1) for l, h in
@@ -76,9 +74,7 @@ class DiscretizedObservationWrapper(gym.ObservationWrapper):
 
 env = DiscretizedObservationWrapper(
     env,
-    n_bins=10,
-    low=[-2.4, -2.0, -0.42, -3.5],
-    high=[2.4, 2.0, 0.42, 3.5]
+    n_bins=10
 )
 
 state = env.reset()
@@ -99,6 +95,8 @@ def epsilon_greedy_action(state):
         action = best_action(state)
     return action
 
+#%%
+
 for i in range(num_episodes):
     # epsilon-greedy
     epsilon = max(init_epsilon * (1 - i/num_exploration_episodes), min_epsilon)
@@ -117,12 +115,13 @@ for i in range(num_episodes):
         state = next_state
         action = next_action
 
-    # pick action
     if (i % 1000 == 0):
-        cum_reward = evaluate_cummulative_reward(env, 100)
+        cum_reward = evaluate_everage_cummulative_reward(env, 100)
         print("i: {}, epsilon: {}, average cumulative reward: {}".format(i, epsilon, cum_reward))
 
 
 
 
 #%%
+cum_reward = evaluate_everage_cummulative_reward(env, 1000)
+print("final cumulative reward: {}".format(cum_reward))
