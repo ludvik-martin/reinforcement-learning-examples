@@ -3,13 +3,13 @@ from collections import defaultdict
 from gym.spaces import Discrete
 
 class Sarsa(RLModel):
-    def __init__(self, env, alpha, gamma=.99, init_epsilon = 1.0, min_epsilon = .001):
+    def __init__(self, env, alpha, gamma=.99, init_epsilon = 1.0, min_epsilon = .01):
         assert isinstance(env.action_space, Discrete)
         if isinstance(env.observation_space, Box):
             env = DiscretizedObservationWrapper(env)
         else:
             assert isinstance(env.observation_space, Discrete)
-        super().__init__(env, gamma, alpha, init_epsilon, min_epsilon)
+        super().__init__(env, alpha, gamma, init_epsilon, min_epsilon)
         # dict with default value 0.0
         self.Q = defaultdict(float)
         self.actions = range(env.action_space.n)
@@ -22,18 +22,20 @@ class Sarsa(RLModel):
         action = np.random.choice(greedy_actions)
         return action
 
-    def training_episode_impl(self):
-        if self.action == None:
-            self.action = self.epsilon_greedy_action(self.state)
+    def training_episode_impl(self, episode_lenght):
+        for i in range(episode_lenght):
+            if self.action == None:
+                self.action = self.epsilon_greedy_action(self.state)
 
-        next_state, reward, done, _ = self.env.step(self.action)
-        if (done):
-            self.Q[self.state, self.action] = (1 - self.alpha) * self.Q[self.state, self.action] + self.alpha * (reward)
-            self.state = self.env.reset()
-            self.action = None
-        else:
-            next_action = self.epsilon_greedy_action(next_state)
-            self.Q[self.state, self.action] = (1 - self.alpha) * self.Q[self.state, self.action] + self.alpha * (
-                        reward + self.gamma * self.Q[next_state, next_action])
-            self.state = next_state
-            self.action = next_action
+            next_state, reward, done, _ = self.env.step(self.action)
+            if (done):
+                self.Q[self.state, self.action] = (1 - self.alpha) * self.Q[self.state, self.action] + self.alpha * (reward)
+                self.state = self.env.reset()
+                self.action = None
+            else:
+                next_action = self.epsilon_greedy_action(next_state)
+                self.Q[self.state, self.action] = (1 - self.alpha) * self.Q[self.state, self.action] + self.alpha * (
+                            reward + self.gamma * self.Q[next_state, next_action])
+                self.state = next_state
+                self.action = next_action
+

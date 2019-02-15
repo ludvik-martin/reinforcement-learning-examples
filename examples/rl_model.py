@@ -6,7 +6,7 @@ from gym.spaces import Discrete
 import numpy as np
 
 class RLModel(ABC):
-    def __init__(self, env:gym.ObservationWrapper, alpha, gamma=.99, init_epsilon = 1.0, min_epsilon = .001):
+    def __init__(self, env:gym.ObservationWrapper, alpha, gamma=.99, init_epsilon = 1.0, min_epsilon = .01):
         '''
         :param env: OpenAI gym environment
         :param alpha: learning rate of the model
@@ -46,16 +46,19 @@ class RLModel(ABC):
             state, reward, done, _ = self.env.step(action)
             g += reward * self.gamma ** step
             step += 1
+        # cleaning-up
+        self.state = self.env.reset()
+        self.action = None
         return g
 
-    def training_episode(self, num_exploration_episodes):
+    def training_episode(self, num_exploration_episodes, episode_lenght):
         # epsilon-greedy
         self.epsilon = max(self.init_epsilon * (1 - self.current_episode / num_exploration_episodes), self.min_epsilon)
-
-        self.training_episode_impl()
+        self.training_episode_impl(episode_lenght)
+        self.current_episode += 1
 
     @abstractmethod
-    def training_episode_impl(self):
+    def training_episode_impl(self, episode_lenght):
         '''
         Actual training episode of the model.
         :return:
