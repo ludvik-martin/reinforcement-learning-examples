@@ -13,5 +13,5 @@ class SarsaTests(TestCase):
         for episode in range(num_episodes):
             sarsa.training_episode(num_exploration_episodes=int(num_episodes * 4/5), episode_lenght=episode_lenght)
 
-        print('Acumulative reward after episode:{} is: {}'.format(episode, sarsa.evaluate_average_cumulative_reward(100)))
+        print('Average cumulative reward after episode:{} is: {}'.format(episode, sarsa.evaluate_average_cumulative_reward(100)))
 

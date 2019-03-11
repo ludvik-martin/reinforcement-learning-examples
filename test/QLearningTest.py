@@ -13,5 +13,5 @@ class QLearningTests(TestCase):
         for episode in range(num_episodes):
             q_learning.training_episode(num_exploration_episodes=int(num_episodes * 2/3), episode_lenght=episode_lenght)
 
-        print('Acumulative reward after episode:{} is: {}'.format(episode, q_learning.evaluate_average_cumulative_reward(100)))
+        print('Average cumulative reward after episode:{} is: {}'.format(episode, q_learning.evaluate_average_cumulative_reward(100)))
 
