@@ -24,8 +24,7 @@ class RLModel(ABC):
         # current action
         self.action = None
         # current state
-        self.state = None
-        self.env.reset()
+        self.state = self.env.reset()
 
     def evaluate_average_cumulative_reward(self, num_episodes:int):
         '''

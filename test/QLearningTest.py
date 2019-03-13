@@ -5,7 +5,7 @@ import gym
 #%%
 class QLearningTests(TestCase):
 
-    def test_sarsa(self):
+    def test_qlearning(self):
         env = gym.make('CartPole-v1')
         q_learning = QLearning(env, alpha=0.5)
         num_episodes = 10 ** 5
