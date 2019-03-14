@@ -110,3 +110,19 @@ class DiscretizedObservationWrapper(gym.ObservationWrapper):
         return self._convert_to_one_number(digits)
 
 
+class NormalizedObservationWrapper(gym.ObservationWrapper):
+    def __init__(self, env):
+        super().__init__(env)
+        assert isinstance(env.observation_space, Box)
+        self.low = self.observation_space.low
+        self.high = self.observation_space.high
+
+    def _normalize(self, state):
+        return (state - (self.high - self.low) / 2) / (self.high - self.low)
+
+    def observation(self, observation):
+        return self._normalize(observation)
+
+
+
+
