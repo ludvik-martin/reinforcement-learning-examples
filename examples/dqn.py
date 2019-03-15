@@ -3,7 +3,7 @@ from examples.rl_model import *
 from collections import defaultdict
 from gym.spaces import Discrete
 import random
-tf.enable_eager_execution()
+#tf.enable_eager_execution()
 
 
 class DeepQModel(tf.keras.Model):
@@ -37,11 +37,11 @@ class DeepQNetwork(RLModel):
         super().__init__(env, alpha, gamma, init_epsilon, min_epsilon)
         self.batch_size = batch_size
         self.model = DeepQModel(action_space_size=env.action_space.n)
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=alpha)
+        self.optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=alpha)
         # overall step
         self.step = 0
         if (log_dir):
-            self.writer = tf.contrib.summary.create_file_writer(log_dir)
+            self.writer = tf.summary.create_file_writer(log_dir)
 
     def greedy_action(self, state):
         return self.model.greedy_action(tf.convert_to_tensor([state], tf.float32))[0].numpy()
@@ -62,21 +62,19 @@ class DeepQNetwork(RLModel):
                 state_arr, next_state_arr, reward_arr = [np.array(a, np.float32) for a in (state_arr, next_state_arr, reward_arr)]
                 action_arr, done_arr = [np.array(a, np.int32) for a in (action_arr, done_arr)]
 
-                with tf.GradientTape() as tape, self.writer.as_default(), tf.contrib.summary.always_record_summaries():
+                with tf.GradientTape() as tape, self.writer.as_default():
                     mean_reward = tf.reduce_mean(reward_arr)
-                    tf.contrib.summary.scalar("reward", mean_reward, step=self.step)
+                    tf.summary.scalar("reward", mean_reward, step=self.step)
 
                     # TD
                     predicted_q = tf.reduce_sum(
                         self.model(tf.convert_to_tensor(state_arr)) * tf.one_hot(action_arr, depth=self.env.action_space.n), axis=-1)
                     target_q = reward + (self.gamma * self.model.max_q_value(tf.convert_to_tensor(next_state_arr))) * (1 - done_arr)
                     loss = tf.losses.mean_squared_error(target_q, predicted_q)
-                    tf.contrib.summary.scalar("loss", loss, step=self.step)
+                    tf.summary.scalar("loss", loss, step=self.step)
                 grads = tape.gradient(loss, self.model.variables)
                 self.optimizer.apply_gradients(zip(grads, self.model.variables))
                 self.step += 1
             if done:
                 # not in the original DQN, but it allow to use GPU more efficiently
                 self.state = self.env.reset()
-
-
