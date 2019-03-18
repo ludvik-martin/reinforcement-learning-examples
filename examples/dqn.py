@@ -3,6 +3,7 @@ from examples.rl_model import *
 from collections import defaultdict
 from gym.spaces import Discrete
 import random
+from tensorboard.plugins.hparams import summary as hparams_summary
 #tf.enable_eager_execution()
 
 
@@ -32,7 +33,7 @@ class DeepQModel(tf.keras.Model):
 
 
 class DeepQNetwork(RLModel):
-    def __init__(self, env, alpha, gamma=.99, init_epsilon = 1.0, min_epsilon = .01, batch_size = 32, log_dir = None):
+    def __init__(self, env, alpha, gamma=.99, init_epsilon = 1.0, min_epsilon = .01, batch_size = 32, writer = None):
         assert isinstance(env.action_space, Discrete)
         super().__init__(env, alpha, gamma, init_epsilon, min_epsilon)
         self.batch_size = batch_size
@@ -40,8 +41,7 @@ class DeepQNetwork(RLModel):
         self.optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=alpha)
         # overall step
         self.step = 0
-        if (log_dir):
-            self.writer = tf.summary.create_file_writer(log_dir)
+        self.writer = writer
 
     def greedy_action(self, state):
         return self.model.greedy_action(tf.convert_to_tensor([state], tf.float32))[0].numpy()
@@ -62,7 +62,7 @@ class DeepQNetwork(RLModel):
                 state_arr, next_state_arr, reward_arr = [np.array(a, np.float32) for a in (state_arr, next_state_arr, reward_arr)]
                 action_arr, done_arr = [np.array(a, np.int32) for a in (action_arr, done_arr)]
 
-                with tf.GradientTape() as tape, self.writer.as_default():
+                with tf.GradientTape() as tape:#, self.writer.as_default():
                     mean_reward = tf.reduce_mean(reward_arr)
                     tf.summary.scalar("reward", mean_reward, step=self.step)
 

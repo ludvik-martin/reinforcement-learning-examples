@@ -1,6 +1,9 @@
-from examples.rl_model import *
+from examples.rl_model import RLModel
 from collections import defaultdict
+from gym.spaces import Box
 from gym.spaces import Discrete
+from examples.gym_utils import DiscretizedObservationWrapper
+import numpy as np
 
 class Sarsa(RLModel):
     def __init__(self, env, alpha, gamma=.99, init_epsilon = 1.0, min_epsilon = .01):
