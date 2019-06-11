@@ -48,7 +48,7 @@ class RLModel(ABC):
         self.action = None
         return g
 
-    def training_episode(self, num_exploration_episodes, episode_lenght):
+    def training_episode(self, num_exploration_episodes, episode_lenght=None):
         # epsilon-greedy
         self.epsilon = max(self.init_epsilon * (1 - self.current_episode / num_exploration_episodes), self.min_epsilon)
         self.training_episode_impl(episode_lenght)
