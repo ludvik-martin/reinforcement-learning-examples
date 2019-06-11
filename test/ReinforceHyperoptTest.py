@@ -19,6 +19,8 @@ class DeepQLearningHyperoptTest(TestCase):
         super().setUp()
         self._alpha_list = []
         self._gamma_list = []
+        self._init_epsilon_list = []
+        self._batch_norm_list= []
         self._log_dir = "/tmp/logdir/reinforce_cart_pole"
 
     def _create_experiment_summary(self):
@@ -26,6 +28,10 @@ class DeepQLearningHyperoptTest(TestCase):
         alpha_list_val.extend(self._alpha_list)
         gamma_list_val = struct_pb2.ListValue()
         gamma_list_val.extend(self._gamma_list)
+        init_epsilon_list_val = struct_pb2.ListValue()
+        init_epsilon_list_val.extend(self._init_epsilon_list)
+        batch_norm_list_val = struct_pb2.ListValue()
+        batch_norm_list_val.extend(self._batch_norm_list)
         return hparams_summary.experiment_pb(
             # The hyperparameters being changed
             hparam_infos=[
@@ -36,7 +42,15 @@ class DeepQLearningHyperoptTest(TestCase):
                 api_pb2.HParamInfo(name='gamma',
                                    display_name='Reward discount factor',
                                    type=api_pb2.DATA_TYPE_FLOAT64,
-                                   domain_discrete=gamma_list_val)
+                                   domain_discrete=gamma_list_val),
+                api_pb2.HParamInfo(name='init_epsilon',
+                                   display_name='Initial exploration',
+                                   type=api_pb2.DATA_TYPE_FLOAT64,
+                                   domain_discrete=init_epsilon_list_val),
+                api_pb2.HParamInfo(name='batch_norm',
+                                   display_name='Batch normalization',
+                                   type=api_pb2.DATA_TYPE_BOOL,
+                                   domain_discrete=batch_norm_list_val)
             ],
             # The metrics being tracked
             metric_infos=[
@@ -48,24 +62,28 @@ class DeepQLearningHyperoptTest(TestCase):
         )
 
     def _experiment(self, args):
-        alpha, gamma = args
-        hparams = {'alpha':alpha, 'gamma':gamma}
+        alpha, gamma, init_epsilon, batch_norm = args
+        hparams = {'alpha':alpha, 'gamma':gamma, 'init_epsilon':init_epsilon, 'batch_norm':batch_norm}
         self._alpha_list.append(alpha)
         self._gamma_list.append(gamma)
+        self._init_epsilon_list.append(init_epsilon)
+        self._batch_norm_list.append(batch_norm)
 
-        writer = tf.summary.create_file_writer(self._log_dir + "/alpha_{}_gamma_{:.3f}".format(alpha, gamma))
+        writer = tf.summary.create_file_writer(self._log_dir + "/alpha_{}_gamma_{:.3f}_init_eps{}_bn_{}".format(alpha, gamma, init_epsilon, batch_norm))
         with writer.as_default():
             summary_start = hparams_summary.session_start_pb(hparams=hparams)
 
             env = CartPoleRewardWrapper(gym.make('CartPole-v1'))
-            reinforce = ReinforceNetwork(env, alpha=alpha, gamma=gamma, writer=writer)
+            reinforce = ReinforceNetwork(env, alpha=alpha, gamma=gamma, init_epsilon=init_epsilon, min_epsilon=0.0,
+                                         batch_normalization=batch_norm, writer=writer)
             num_episodes = 10
             episode_lenth = 50
             for episode in range(num_episodes):
                 reinforce.training_episode(num_exploration_episodes=int(num_episodes * 2/3), episode_lenght=episode_lenth)
 
-            average_cmulative_reward = reinforce.evaluate_average_cumulative_reward(100)
-            print('Average cumulative reward after episode:{} for alpha: {}, gamma: {}'.format(episode, alpha, gamma, average_cmulative_reward))
+            average_cmulative_reward = reinforce.evaluate_average_cumulative_reward(5)
+            print('Average cumulative reward after episode:{} for alpha: {}, gamma: {}, init_eps: {}, batch_norm: {}, reward: {}'.
+                  format(episode, alpha, gamma, init_epsilon, batch_norm, average_cmulative_reward))
             summary_end = hparams_summary.session_end_pb(api_pb2.STATUS_SUCCESS)
             tf.summary.scalar('cummulative_reward', average_cmulative_reward, step=1, description="Average cummulative reward")
             tf.summary.import_event(tf.compat.v1.Event(summary=summary_start).SerializeToString())
@@ -77,10 +95,12 @@ class DeepQLearningHyperoptTest(TestCase):
     def test_reinforce_cart_pole(self):
         log_dir = "/tmp/logdir/reinforce_cart_pole"
 
-        space = [hp.uniform('alpha', 1e-3, 5e-2), hp.uniform('gamma', .8, .99)]
+        space = [hp.uniform('alpha', 1e-3, 5e-2), hp.uniform('gamma', .8, .99), hp.uniform('init_epsilon', 0.0, 1.0),
+                 hp.choice('batch_norm', [True, False])]
         # minimize the values
         best = fmin(self._experiment, space, algo=tpe.suggest, max_evals=5)
-        print("best hyperparameters: alpha={}, gamma={:.3f}".format(best['alpha'], best['gamma']))
+        print("best hyperparameters: alpha={}, gamma={:.3f}, init_epsilon:{}, batch_norm:{}".format(best['alpha'],
+                                                            best['gamma'], best['init_epsilon'], best['batch_norm']))
 
         # all hyper parameters are know after all experiments
         exp_summary = self._create_experiment_summary()
