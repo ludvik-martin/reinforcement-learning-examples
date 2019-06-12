@@ -76,16 +76,16 @@ class DeepQLearningHyperoptTest(TestCase):
             env = CartPoleRewardWrapper(gym.make('CartPole-v1'))
             reinforce = ReinforceNetwork(env, alpha=alpha, gamma=gamma, init_epsilon=init_epsilon, min_epsilon=0.0,
                                          batch_normalization=batch_norm, writer=writer)
-            num_episodes = 10
-            episode_lenth = 50
+            num_episodes = 1000
+            episode_lenth = 1000
             for episode in range(num_episodes):
                 reinforce.training_episode(num_exploration_episodes=int(num_episodes * 2/3), episode_lenght=episode_lenth)
 
-            average_cmulative_reward = reinforce.evaluate_average_cumulative_reward(5)
-            print('Average cumulative reward after episode:{} for alpha: {}, gamma: {}, init_eps: {}, batch_norm: {}, reward: {}'.
+            average_cmulative_reward = reinforce.evaluate_average_sum_reward(5)
+            print('Average sum reward after episode:{} for alpha: {}, gamma: {}, init_eps: {}, batch_norm: {}, reward: {}'.
                   format(episode, alpha, gamma, init_epsilon, batch_norm, average_cmulative_reward))
             summary_end = hparams_summary.session_end_pb(api_pb2.STATUS_SUCCESS)
-            tf.summary.scalar('cummulative_reward', average_cmulative_reward, step=1, description="Average cummulative reward")
+            tf.summary.scalar('sum_reward', average_cmulative_reward, step=1, description="Average sum reward")
             tf.summary.import_event(tf.compat.v1.Event(summary=summary_start).SerializeToString())
             tf.summary.import_event(tf.compat.v1.Event(summary=summary_end).SerializeToString())
 
@@ -95,10 +95,10 @@ class DeepQLearningHyperoptTest(TestCase):
     def test_reinforce_cart_pole(self):
         log_dir = "/tmp/logdir/reinforce_cart_pole"
 
-        space = [hp.uniform('alpha', 1e-3, 5e-2), hp.uniform('gamma', .8, .99), hp.uniform('init_epsilon', 0.0, 1.0),
+        space = [hp.uniform('alpha', 1e-4, 1e-2), hp.uniform('gamma', .8, .99), hp.uniform('init_epsilon', 0.0, 1.0),
                  hp.choice('batch_norm', [True, False])]
         # minimize the values
-        best = fmin(self._experiment, space, algo=tpe.suggest, max_evals=5)
+        best = fmin(self._experiment, space, algo=tpe.suggest, max_evals=50)
         print("best hyperparameters: alpha={}, gamma={:.3f}, init_epsilon:{}, batch_norm:{}".format(best['alpha'],
                                                             best['gamma'], best['init_epsilon'], best['batch_norm']))
 

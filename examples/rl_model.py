@@ -32,6 +32,14 @@ class RLModel(ABC):
         rewards = [self.evaluate_cumulative_reward() for i in range(num_episodes)]
         return sum(rewards) / len(rewards)
 
+    def evaluate_average_sum_reward(self, num_episodes:int):
+        '''
+        :param num_episodes: number of episodes to evaluate it on
+        :return:
+        '''
+        rewards = [self.evaluate_sum_reward() for i in range(num_episodes)]
+        return sum(rewards) / len(rewards)
+
     def evaluate_cumulative_reward(self):
         state = self.env.reset()
         # cumulative
@@ -42,6 +50,22 @@ class RLModel(ABC):
             action = self.greedy_action(state)
             state, reward, done, _ = self.env.step(action)
             g += reward * self.gamma ** step
+            step += 1
+        # cleaning-up
+        self.state = self.env.reset()
+        self.action = None
+        return g
+
+    def evaluate_sum_reward(self):
+        state = self.env.reset()
+        # cumulative
+        g = 0
+        step = 0
+        done = False
+        while not done:
+            action = self.greedy_action(state)
+            state, reward, done, _ = self.env.step(action)
+            g += reward
             step += 1
         # cleaning-up
         self.state = self.env.reset()

@@ -11,7 +11,7 @@ class ReinforceModel(tf.keras.Model):
     def __init__(self, action_space_size, batch_normalization):
         super().__init__()
         self._batch_normalization = batch_normalization
-        self.dense1 = tf.keras.layers.Dense(units=32, activation=tf.nn.relu)
+        self.dense1 = tf.keras.layers.Dense(units=64, activation=tf.nn.relu)
         self.dense2 = tf.keras.layers.Dense(units=64, activation=tf.nn.relu)
         self.dense3 = tf.keras.layers.Dense(units=64, activation=tf.nn.relu)
         self.dense4 = tf.keras.layers.Dense(units=64, activation=tf.nn.relu)
