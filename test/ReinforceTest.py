@@ -11,7 +11,7 @@ class ReinforceTests(TestCase):
 
     def test_cart_pole(self):
         env = CartPoleRewardWrapper(gym.make('CartPole-v1'))
-        writer = tf.summary.create_file_writer("/tmp/logdir/reinforce_cart_pole")
+        writer = tf.summary.create_file_writer("/tmp/logdir/test")
         reinforce = ReinforceNetwork(env, alpha=1e-3)
         num_episodes = 10
         for episode in range(num_episodes):

@@ -6,17 +6,26 @@ import random
 from tensorboard.plugins.hparams import summary as hparams_summary
 #tf.enable_eager_execution()
 
+class BaselineModel(tf.keras.Model):
+    def __init__(self):
+        super().__init__()
+        self.dense1 = tf.keras.layers.Dense(units=32, activation=tf.nn.relu, kernel_initializer=tf.initializers.glorot_uniform())
+        self.dense2 = tf.keras.layers.Dense(units=32, activation=tf.nn.relu, kernel_initializer=tf.initializers.glorot_uniform())
+        self.dense3 = tf.keras.layers.Dense(units=1)
+
+    def call(self, state):
+        x = self.dense1(state)
+        x = self.dense2(x)
+        x = self.dense3(x)
+        return x
 
 class ReinforceModel(tf.keras.Model):
     def __init__(self, action_space_size, batch_normalization):
         super().__init__()
         self._batch_normalization = batch_normalization
-        self.dense1 = tf.keras.layers.Dense(units=64, activation=tf.nn.relu)
-        self.dense2 = tf.keras.layers.Dense(units=64, activation=tf.nn.relu)
-        self.dense3 = tf.keras.layers.Dense(units=64, activation=tf.nn.relu)
-        self.dense4 = tf.keras.layers.Dense(units=64, activation=tf.nn.relu)
-        self.dense5 = tf.keras.layers.Dense(units=64, activation=tf.nn.relu)
-        self.dense6 = tf.keras.layers.Dense(units=action_space_size)
+        self.dense1 = tf.keras.layers.Dense(units=32, activation=tf.nn.relu, kernel_initializer=tf.initializers.glorot_uniform())
+        self.dense2 = tf.keras.layers.Dense(units=32, activation=tf.nn.relu, kernel_initializer=tf.initializers.glorot_uniform())
+        self.dense3 = tf.keras.layers.Dense(units=action_space_size)
 
     def call(self, state, training):
         x = self.dense1(state)
@@ -26,15 +35,6 @@ class ReinforceModel(tf.keras.Model):
         if (self._batch_normalization):
             x = tf.keras.layers.BatchNormalization(axis=1)(x, training=training)
         x = self.dense3(x)
-        if (self._batch_normalization):
-            x = tf.keras.layers.BatchNormalization(axis=1)(x, training=training)
-        x = self.dense4(x)
-        if (self._batch_normalization):
-            x = tf.keras.layers.BatchNormalization(axis=1)(x, training=training)
-        x = self.dense5(x)
-        if (self._batch_normalization):
-            x = tf.keras.layers.BatchNormalization(axis=1)(x, training=training)
-        x = self.dense6(x)
         return x
 
     def greedy_action(self, state):
@@ -46,7 +46,9 @@ class ReinforceNetwork(RLModel):
         super().__init__(env, alpha, gamma, init_epsilon, min_epsilon)
         self.batch_size = batch_size
         self.model = ReinforceModel(action_space_size=env.action_space.n, batch_normalization=batch_normalization)
+        self.baseline_model = BaselineModel()
         self.optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=alpha)
+        self.baseline_optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=alpha)
         # overall step
         self.step = 0
         self.writer = writer
@@ -93,11 +95,23 @@ class ReinforceNetwork(RLModel):
 
         # cummulative reward for the whole episode
         tf.summary.scalar("reward", batch_cumulative_rewards[0], step=self.step)
+
+        with tf.GradientTape() as tape:
+            v = self.baseline_model(batch_state)
+            target = batch_cumulative_rewards  - v # advantage
+
+            # TODO it should probably be: mean_squared_error(r + gamma * v(s+1), v(s))
+            baseline_loss = tf.reduce_mean(tf.math.squared_difference(batch_cumulative_rewards, v))
+            tf.summary.scalar("baseline_loss", baseline_loss, step=self.step)
+        baseline_grads = tape.gradient(baseline_loss, self.baseline_model.variables)
+        self.baseline_optimizer.apply_gradients(grads_and_vars=zip(baseline_grads, self.baseline_model.variables))
+
+
         with tf.GradientTape() as tape:
             loss = tf.reduce_mean(
                 tf.nn.sparse_softmax_cross_entropy_with_logits(labels=batch_action,
                                                                logits=self.model(batch_state, training=True)) *
-                batch_cumulative_rewards
+                tf.stop_gradient(target)
 
             )
             tf.summary.scalar("loss", loss, step=self.step)

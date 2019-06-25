@@ -95,7 +95,7 @@ class DeepQLearningHyperoptTest(TestCase):
     def test_reinforce_cart_pole(self):
         log_dir = "/tmp/logdir/reinforce_cart_pole"
 
-        space = [hp.uniform('alpha', 1e-4, 1e-2), hp.uniform('gamma', .8, .99), hp.uniform('init_epsilon', 0.0, 1.0),
+        space = [hp.loguniform('alpha', 5e-4, 5e-3), hp.uniform('gamma', .99, .998), hp.uniform('init_epsilon', 0.0, 1.0),
                  hp.choice('batch_norm', [True, False])]
         # minimize the values
         best = fmin(self._experiment, space, algo=tpe.suggest, max_evals=50)
