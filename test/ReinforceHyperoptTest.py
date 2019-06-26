@@ -71,8 +71,8 @@ class DeepQLearningHyperoptTest(TestCase):
             metric_infos=[
                 api_pb2.MetricInfo(
                     name=api_pb2.MetricName(
-                        tag='cummulative_reward'),
-                    display_name='CumReward'),
+                        tag='sum_reward'),
+                    display_name='SumReward'),
             ]
         )
 
