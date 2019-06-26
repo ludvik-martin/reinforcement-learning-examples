@@ -4,7 +4,7 @@ import gym
 import numpy as np
 
 class RLModel(ABC):
-    def __init__(self, env:gym.ObservationWrapper, alpha, gamma=.99, init_epsilon = 1.0, min_epsilon = .01):
+    def __init__(self, env:gym.ObservationWrapper, alpha, alpha_decay, gamma=.99, init_epsilon = 1.0, min_epsilon = .01):
         '''
         :param env: OpenAI gym environment
         :param alpha: learning rate of the model
@@ -14,6 +14,7 @@ class RLModel(ABC):
         super().__init__()
         self.env = env
         self.alpha = alpha
+        self.alpha_decay = alpha_decay
         self.gamma = gamma
         self.init_epsilon = init_epsilon
         self.min_epsilon = min_epsilon
@@ -72,14 +73,19 @@ class RLModel(ABC):
         self.action = None
         return g
 
-    def training_episode(self, num_exploration_episodes, episode_lenght=None):
+    def training_episode(self, num_exploration_episodes=0, episode_lenght=None, debug=False):
         # epsilon-greedy
-        self.epsilon = max(self.init_epsilon * (1 - self.current_episode / num_exploration_episodes), self.min_epsilon)
-        self.training_episode_impl(episode_lenght)
+        if num_exploration_episodes != 0:
+            self.epsilon = max(self.init_epsilon * (1 - self.current_episode / num_exploration_episodes), self.min_epsilon)
+        else:
+            self.epsilon = 0
+        self.training_episode_impl(episode_lenght, debug)
         self.current_episode += 1
+        # learning rate decay
+        self.alpha *= self.alpha_decay
 
     @abstractmethod
-    def training_episode_impl(self, episode_lenght):
+    def training_episode_impl(self, episode_lenght, debug=False):
         '''
         Actual training episode of the model.
         :return:

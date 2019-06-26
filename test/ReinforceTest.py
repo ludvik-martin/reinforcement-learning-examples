@@ -12,11 +12,10 @@ class ReinforceTests(TestCase):
     def test_cart_pole(self):
         env = CartPoleRewardWrapper(gym.make('CartPole-v1'))
         writer = tf.summary.create_file_writer("/tmp/logdir/test")
-        reinforce = ReinforceNetwork(env, alpha=1e-3)
-        num_episodes = 10
+        reinforce = ReinforceNetwork(env, alpha=1e-3, alpha_decay=.998, min_epsilon=0, gamma=.99)
+        num_episodes = 800
         for episode in range(num_episodes):
-            reinforce.training_episode(num_exploration_episodes=int(num_episodes * 2/3))
-            print("episode: {}, epsilon: {}, everage cumulative reward: {}".format(episode, reinforce.epsilon, reinforce.evaluate_average_cumulative_reward(100)))
+            reinforce.training_episode(debug=True)
 
         print('Average cumulative reward after episode:{} is: {}'.format(episode, reinforce.evaluate_average_cumulative_reward(100)))
 

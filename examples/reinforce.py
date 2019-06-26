@@ -41,9 +41,9 @@ class ReinforceModel(tf.keras.Model):
         return tf.squeeze(tf.random.categorical(self(state, training=False), 1)).numpy()
 
 class ReinforceNetwork(RLModel):
-    def __init__(self, env, alpha, gamma=.99, init_epsilon = 1.0, min_epsilon = .01, batch_size = 32, batch_normalization = False, writer = None):
+    def __init__(self, env, alpha, alpha_decay, gamma=.99, init_epsilon = 1.0, min_epsilon = .01, batch_size = 32, batch_normalization = False, writer = None):
         assert isinstance(env.action_space, Discrete)
-        super().__init__(env, alpha, gamma, init_epsilon, min_epsilon)
+        super().__init__(env, alpha, alpha_decay, gamma, init_epsilon, min_epsilon)
         self.batch_size = batch_size
         self.model = ReinforceModel(action_space_size=env.action_space.n, batch_normalization=batch_normalization)
         self.baseline_model = BaselineModel()
@@ -53,6 +53,7 @@ class ReinforceNetwork(RLModel):
         self.step = 0
         self.writer = writer
         self.max_len_episode = 10000
+        self.reward_history = []
 
     def _calculate_cumulative_reward(self, batch_reward, gamma):
         batch_reward = deque(batch_reward)
@@ -67,19 +68,20 @@ class ReinforceNetwork(RLModel):
     def greedy_action(self, state):
         return self.model.greedy_action(tf.convert_to_tensor([state], tf.float32))
 
-    def training_episode_impl(self, episode_lenght):
+    def training_episode_impl(self, episode_lenght, debug=False):
         # Initialize the environment and get its initial state.
         self.state = self.env.reset()
 
         buffer = []
 
+        episode_reward = 0
         for t in range(self.max_len_episode):
             action = self.epsilon_greedy_action(self.state)
             next_state, reward, done, info = self.env.step(
                 action)  # Let the environment to execute the action, get the next state of the action, the reward of the action, whether the game is done and extra information.
-            reward = -10. if done else reward  # Give a large negative reward if the game is over.
             buffer.append((self.state, action, reward, next_state,
-                                  1 if done else 0))  # Put the (state, action, reward, next_state) quad back into the experience replay pool.
+                                              1 if done else 0))  # Put the (state, action, reward, next_state) quad back into the experience replay pool.
+            episode_reward+=reward
             self.state = next_state
 
             if done:  # Exit this round and enter the next episode if the game is over.
@@ -94,7 +96,7 @@ class ReinforceNetwork(RLModel):
         batch_cumulative_rewards = self._calculate_cumulative_reward(batch_reward, self.gamma)
 
         # cummulative reward for the whole episode
-        tf.summary.scalar("reward", batch_cumulative_rewards[0], step=self.step)
+        tf.summary.scalar("episode_reward", episode_reward, step=self.step)
 
         with tf.GradientTape() as tape:
             v = self.baseline_model(batch_state)
@@ -117,4 +119,10 @@ class ReinforceNetwork(RLModel):
             tf.summary.scalar("loss", loss, step=self.step)
         grads = tape.gradient(loss, self.model.variables)
         self.optimizer.apply_gradients(grads_and_vars=zip(grads, self.model.variables))
+
+        if debug:
+            self.reward_history.append(episode_reward)
+            avg_reward = np.mean(self.reward_history[-10:])
+            best_reward = np.max(self.reward_history)
+            print("[step:{}], best:{}, avg:{:.2f}, alpha:{:.4f}, epsilon:{}".format(self.step, best_reward, avg_reward, self.alpha, self.epsilon))
         self.step += 1
