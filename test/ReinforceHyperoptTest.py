@@ -96,7 +96,7 @@ class DeepQLearningHyperoptTest(TestCase):
                                          batch_normalization=batch_norm, writer=writer)
             num_episodes = 1000
             for episode in range(num_episodes):
-                reinforce.training_episode(num_exploration_episodes=n_exploration_episodes, debug=True)
+                reinforce.training_episode(num_exploration_episodes=n_exploration_episodes, debug=False)
 
             average_sum_reward = reinforce.evaluate_average_sum_reward(5)
             print('Average sum reward after episode:{} for alpha: {}, alpha_decay: {}, gamma: {}, init_eps: {}, n_exploration_episodes: {}, batch_norm: {}, reward: {}'.
