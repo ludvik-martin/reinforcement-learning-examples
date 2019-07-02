@@ -76,17 +76,18 @@ class DeepQLearningHyperoptTest(TestCase):
         )
 
     def _experiment(self, env):
-        def _experiment_impl(self, args):
+        parent_self = self
+        def _experiment_impl(args):
             alpha, alpha_decay, gamma, init_epsilon, n_exploration_episodes, batch_norm = args
             hparams = {'alpha':alpha, 'alpha_decay':alpha_decay, 'gamma':gamma, 'init_epsilon':init_epsilon, 'n_exploration_episodes':n_exploration_episodes, 'batch_norm':batch_norm}
-            self._alpha_list.append(alpha)
-            self._alpha_decay_list.append(alpha_decay)
-            self._gamma_list.append(gamma)
-            self._init_epsilon_list.append(init_epsilon)
-            self._n_exploration_episodes.append(n_exploration_episodes)
-            self._batch_norm_list.append(batch_norm)
+            parent_self._alpha_list.append(alpha)
+            parent_self._alpha_decay_list.append(alpha_decay)
+            parent_self._gamma_list.append(gamma)
+            parent_self._init_epsilon_list.append(init_epsilon)
+            parent_self._n_exploration_episodes.append(n_exploration_episodes)
+            parent_self._batch_norm_list.append(batch_norm)
 
-            writer = tf.summary.create_file_writer(self._log_dir + "/alpha_{}_alpha_decay_{}_gamma_{:.3f}_init_eps{}_n_explor_{}_bn_{}"
+            writer = tf.summary.create_file_writer(parent_self._log_dir + "/alpha_{}_alpha_decay_{}_gamma_{:.3f}_init_eps{}_n_explor_{}_bn_{}"
                                                    .format(alpha, alpha_decay, gamma, init_epsilon, n_exploration_episodes, batch_norm))
             with writer.as_default():
                 summary_start = hparams_summary.session_start_pb(hparams=hparams)
