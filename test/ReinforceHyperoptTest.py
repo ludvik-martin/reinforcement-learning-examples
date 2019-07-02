@@ -75,48 +75,51 @@ class DeepQLearningHyperoptTest(TestCase):
             ]
         )
 
-    def _experiment(self, args):
-        alpha, alpha_decay, gamma, init_epsilon, n_exploration_episodes, batch_norm, env = args
-        hparams = {'alpha':alpha, 'alpha_decay':alpha_decay, 'gamma':gamma, 'init_epsilon':init_epsilon, 'n_exploration_episodes':n_exploration_episodes, 'batch_norm':batch_norm}
-        self._alpha_list.append(alpha)
-        self._alpha_decay_list.append(alpha_decay)
-        self._gamma_list.append(gamma)
-        self._init_epsilon_list.append(init_epsilon)
-        self._n_exploration_episodes.append(n_exploration_episodes)
-        self._batch_norm_list.append(batch_norm)
+    def _experiment(self, env):
+        def _experiment_impl(self, args):
+            alpha, alpha_decay, gamma, init_epsilon, n_exploration_episodes, batch_norm = args
+            hparams = {'alpha':alpha, 'alpha_decay':alpha_decay, 'gamma':gamma, 'init_epsilon':init_epsilon, 'n_exploration_episodes':n_exploration_episodes, 'batch_norm':batch_norm}
+            self._alpha_list.append(alpha)
+            self._alpha_decay_list.append(alpha_decay)
+            self._gamma_list.append(gamma)
+            self._init_epsilon_list.append(init_epsilon)
+            self._n_exploration_episodes.append(n_exploration_episodes)
+            self._batch_norm_list.append(batch_norm)
 
-        writer = tf.summary.create_file_writer(self._log_dir + "/alpha_{}_alpha_decay_{}_gamma_{:.3f}_init_eps{}_n_explor_{}_bn_{}"
-                                               .format(alpha, alpha_decay, gamma, init_epsilon, n_exploration_episodes, batch_norm))
-        with writer.as_default():
-            summary_start = hparams_summary.session_start_pb(hparams=hparams)
+            writer = tf.summary.create_file_writer(self._log_dir + "/alpha_{}_alpha_decay_{}_gamma_{:.3f}_init_eps{}_n_explor_{}_bn_{}"
+                                                   .format(alpha, alpha_decay, gamma, init_epsilon, n_exploration_episodes, batch_norm))
+            with writer.as_default():
+                summary_start = hparams_summary.session_start_pb(hparams=hparams)
 
-            reinforce = ReinforceNetwork(env, alpha=alpha, alpha_decay=alpha_decay, gamma=gamma, init_epsilon=init_epsilon, min_epsilon=0.0,
-                                         batch_normalization=batch_norm, writer=writer)
-            num_episodes = 1000
-            for episode in range(num_episodes):
-                reinforce.training_episode(num_exploration_episodes=n_exploration_episodes, debug=False)
+                reinforce = ReinforceNetwork(env, alpha=alpha, alpha_decay=alpha_decay, gamma=gamma, init_epsilon=init_epsilon, min_epsilon=0.0,
+                                             batch_normalization=batch_norm, writer=writer)
+                num_episodes = 1000
+                for episode in range(num_episodes):
+                    reinforce.training_episode(num_exploration_episodes=n_exploration_episodes, debug=False)
 
-            average_sum_reward = reinforce.evaluate_average_sum_reward(5)
-            print('Average sum reward after episode:{} for alpha: {}, alpha_decay: {}, gamma: {}, init_eps: {}, n_exploration_episodes: {}, batch_norm: {}, reward: {}'.
-                  format(episode, alpha, alpha_decay, gamma, init_epsilon, n_exploration_episodes, batch_norm, average_sum_reward))
-            summary_end = hparams_summary.session_end_pb(api_pb2.STATUS_SUCCESS)
-            tf.summary.scalar('sum_reward', average_sum_reward, step=1, description="Average sum reward")
-            tf.summary.import_event(tf.compat.v1.Event(summary=summary_start).SerializeToString())
-            tf.summary.import_event(tf.compat.v1.Event(summary=summary_end).SerializeToString())
+                average_sum_reward = reinforce.evaluate_average_sum_reward(5)
+                print('Average sum reward after episode:{} for alpha: {}, alpha_decay: {}, gamma: {}, init_eps: {}, n_exploration_episodes: {}, batch_norm: {}, reward: {}'.
+                      format(episode, alpha, alpha_decay, gamma, init_epsilon, n_exploration_episodes, batch_norm, average_sum_reward))
+                summary_end = hparams_summary.session_end_pb(api_pb2.STATUS_SUCCESS)
+                tf.summary.scalar('sum_reward', average_sum_reward, step=1, description="Average sum reward")
+                tf.summary.import_event(tf.compat.v1.Event(summary=summary_start).SerializeToString())
+                tf.summary.import_event(tf.compat.v1.Event(summary=summary_end).SerializeToString())
 
-        # hyperopt needs negative value to minimize provided function properly based on fmin (no fmax alternative yet..)
-        return -average_sum_reward
+            # hyperopt needs negative value to minimize provided function properly based on fmin (no fmax alternative yet..)
+            return -average_sum_reward
+
+        return _experiment_impl
 
     def test_reinforce_cart_pole(self):
         log_dir = "/tmp/logdir/CartPole-v1"
 
         space = [hp.loguniform('alpha', math.log(1e-4), math.log(1e-2)), hp.uniform('alpha_decay', .995, .999),
                  hp.uniform('gamma', .99, .998), hp.uniform('init_epsilon', 0.0, 0.5),
-                 hp.uniform('n_exploration_episodes', 0, 500), hp.choice('batch_norm', [True, False]),
-                 hp.choice('env', [CartPoleRewardWrapper(gym.make('CartPole-v1'))]
-                )]
+                 hp.uniform('n_exploration_episodes', 0, 500), hp.choice('batch_norm', [True, False])
+                ]
         # minimize the values
-        best = fmin(self._experiment, space, algo=tpe.suggest, max_evals=50)
+        env = CartPoleRewardWrapper(gym.make('CartPole-v1'))
+        best = fmin(self._experiment(env), space, algo=tpe.suggest, max_evals=50)
         print("best hyperparameters: alpha={}, alpha_decay={}, gamma={:.3f}, init_epsilon:{}, batch_norm:{}".format(best['alpha'],
             best['alpha_decay'], best['gamma'], best['init_epsilon'], best['batch_norm']))
 
@@ -127,17 +130,17 @@ class DeepQLearningHyperoptTest(TestCase):
             tf.summary.import_event(tf.compat.v1.Event(summary=exp_summary).SerializeToString())
 
 
-    def test_reinforce_cart_pole(self):
+    def test_reinforce_mountain_car(self):
         log_dir = "/tmp/logdir/MountainCar-v0"
 
         space = [hp.loguniform('alpha', math.log(1e-4), math.log(1e-2)), hp.uniform('alpha_decay', .995, .999),
                  hp.uniform('gamma', .99, .998), hp.uniform('init_epsilon', 0.0, 0.5),
                  hp.uniform('n_exploration_episodes', 0, 500),
-                 hp.choice('batch_norm', [True, False],
-                 hp.choice('env', [NormalizedObservationWrapper(gym.make('MountainCar-v0'))])
-                )]
+                 hp.choice('batch_norm', [True, False])
+                 ]
         # minimize the values
-        best = fmin(self._experiment, space, algo=tpe.suggest, max_evals=50)
+        env = NormalizedObservationWrapper(gym.make('MountainCar-v0'))
+        best = fmin(self._experiment(env), space, algo=tpe.suggest, max_evals=50)
         print("best hyperparameters: alpha={}, alpha_decay={}, gamma={:.3f}, init_epsilon:{}, batch_norm:{}".format(best['alpha'],
             best['alpha_decay'], best['gamma'], best['init_epsilon'], best['batch_norm']))
 
