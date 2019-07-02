@@ -2,6 +2,7 @@ from abc import ABC
 from abc import abstractmethod
 import gym
 import numpy as np
+from gym import wrappers
 
 class RLModel(ABC):
     def __init__(self, env:gym.ObservationWrapper, alpha, alpha_decay, gamma=.99, init_epsilon = 1.0, min_epsilon = .01):
@@ -40,6 +41,24 @@ class RLModel(ABC):
         '''
         rewards = [self.evaluate_sum_reward() for i in range(num_episodes)]
         return sum(rewards) / len(rewards)
+
+
+    def visualise_cumulative_reward(self, num_episodes:int):
+        env = wrappers.Monitor(self.env, "/tmp/gym-results", force=True)
+        for i in range(num_episodes):
+            state = env.reset()
+            # cumulative
+            g = 0
+            step = 0
+            done = False
+            while not done:
+                action = self.greedy_action(state)
+                state, reward, done, _ = env.step(action)
+                g += reward * self.gamma ** step
+                step += 1
+            # cleaning-up
+            self.state = self.env.reset()
+            self.action = None
 
     def evaluate_cumulative_reward(self):
         state = self.env.reset()

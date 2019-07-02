@@ -1,5 +1,5 @@
 from examples.reinforce import ReinforceNetwork
-from examples.gym_utils import CartPoleRewardWrapper
+from examples.gym_utils import CartPoleRewardWrapper, NormalizedObservationWrapper
 import unittest
 from unittest import TestCase
 import gym
@@ -24,7 +24,6 @@ class DeepQLearningHyperoptTest(TestCase):
         self._init_epsilon_list = []
         self._n_exploration_episodes = []
         self._batch_norm_list= []
-        self._log_dir = "/tmp/logdir/reinforce_cart_pole"
 
     def _create_experiment_summary(self):
         alpha_list_val = struct_pb2.ListValue()
@@ -77,7 +76,7 @@ class DeepQLearningHyperoptTest(TestCase):
         )
 
     def _experiment(self, args):
-        alpha, alpha_decay, gamma, init_epsilon, n_exploration_episodes, batch_norm = args
+        alpha, alpha_decay, gamma, init_epsilon, n_exploration_episodes, batch_norm, env = args
         hparams = {'alpha':alpha, 'alpha_decay':alpha_decay, 'gamma':gamma, 'init_epsilon':init_epsilon, 'n_exploration_episodes':n_exploration_episodes, 'batch_norm':batch_norm}
         self._alpha_list.append(alpha)
         self._alpha_decay_list.append(alpha_decay)
@@ -91,7 +90,6 @@ class DeepQLearningHyperoptTest(TestCase):
         with writer.as_default():
             summary_start = hparams_summary.session_start_pb(hparams=hparams)
 
-            env = CartPoleRewardWrapper(gym.make('CartPole-v1'))
             reinforce = ReinforceNetwork(env, alpha=alpha, alpha_decay=alpha_decay, gamma=gamma, init_epsilon=init_epsilon, min_epsilon=0.0,
                                          batch_normalization=batch_norm, writer=writer)
             num_episodes = 1000
@@ -110,11 +108,34 @@ class DeepQLearningHyperoptTest(TestCase):
         return -average_sum_reward
 
     def test_reinforce_cart_pole(self):
-        log_dir = "/tmp/logdir/reinforce_cart_pole"
+        log_dir = "/tmp/logdir/CartPole-v1"
 
         space = [hp.loguniform('alpha', math.log(1e-4), math.log(1e-2)), hp.uniform('alpha_decay', .995, .999),
                  hp.uniform('gamma', .99, .998), hp.uniform('init_epsilon', 0.0, 0.5),
-                 hp.uniform('n_exploration_episodes', 0, 500), hp.choice('batch_norm', [True, False])]
+                 hp.uniform('n_exploration_episodes', 0, 500), hp.choice('batch_norm', [True, False]),
+                 hp.choice('env', [CartPoleRewardWrapper(gym.make('CartPole-v1'))]
+                )]
+        # minimize the values
+        best = fmin(self._experiment, space, algo=tpe.suggest, max_evals=50)
+        print("best hyperparameters: alpha={}, alpha_decay={}, gamma={:.3f}, init_epsilon:{}, batch_norm:{}".format(best['alpha'],
+            best['alpha_decay'], best['gamma'], best['init_epsilon'], best['batch_norm']))
+
+        # all hyper parameters are know after all experiments
+        exp_summary = self._create_experiment_summary()
+        root_writer = tf.summary.create_file_writer(log_dir)
+        with root_writer.as_default():
+            tf.summary.import_event(tf.compat.v1.Event(summary=exp_summary).SerializeToString())
+
+
+    def test_reinforce_cart_pole(self):
+        log_dir = "/tmp/logdir/MountainCar-v0"
+
+        space = [hp.loguniform('alpha', math.log(1e-4), math.log(1e-2)), hp.uniform('alpha_decay', .995, .999),
+                 hp.uniform('gamma', .99, .998), hp.uniform('init_epsilon', 0.0, 0.5),
+                 hp.uniform('n_exploration_episodes', 0, 500),
+                 hp.choice('batch_norm', [True, False],
+                 hp.choice('env', [NormalizedObservationWrapper(gym.make('MountainCar-v0'))])
+                )]
         # minimize the values
         best = fmin(self._experiment, space, algo=tpe.suggest, max_evals=50)
         print("best hyperparameters: alpha={}, alpha_decay={}, gamma={:.3f}, init_epsilon:{}, batch_norm:{}".format(best['alpha'],
