@@ -11,7 +11,6 @@ import math
 from tensorboard.plugins.hparams import api_pb2
 from tensorboard.plugins.hparams import summary as hparams_summary
 from google.protobuf import struct_pb2
-
 #%%
 
 class DeepQLearningHyperoptTest(TestCase):
@@ -24,7 +23,6 @@ class DeepQLearningHyperoptTest(TestCase):
         self._init_epsilon_list = []
         self._n_exploration_episodes = []
         self._batch_norm_list= []
-        self._log_dir = "/tmp/logdir/reinforce_cart_pole"
 
     def _create_experiment_summary(self):
         alpha_list_val = struct_pb2.ListValue()
@@ -88,6 +86,7 @@ class DeepQLearningHyperoptTest(TestCase):
             parent_self._n_exploration_episodes.append(n_exploration_episodes)
             parent_self._batch_norm_list.append(batch_norm)
 
+
             writer = tf.summary.create_file_writer(log_dir + "/alpha_{}_alpha_decay_{}_gamma_{:.3f}_init_eps{}_n_explor_{}_bn_{}"
                                                    .format(alpha, alpha_decay, gamma, init_epsilon, n_exploration_episodes, batch_norm))
             with writer.as_default():
@@ -102,8 +101,8 @@ class DeepQLearningHyperoptTest(TestCase):
                 average_sum_reward = reinforce.evaluate_average_sum_reward(5)
                 print('Average sum reward after episode:{} for alpha: {}, alpha_decay: {}, gamma: {}, init_eps: {}, n_exploration_episodes: {}, batch_norm: {}, reward: {}'.
                       format(episode, alpha, alpha_decay, gamma, init_epsilon, n_exploration_episodes, batch_norm, average_sum_reward))
-                summary_end = hparams_summary.session_end_pb(api_pb2.STATUS_SUCCESS)
                 tf.summary.scalar('sum_reward', average_sum_reward, step=1, description="Average sum reward")
+                summary_end = hparams_summary.session_end_pb(api_pb2.STATUS_SUCCESS)
                 tf.summary.import_event(tf.compat.v1.Event(summary=summary_start).SerializeToString())
                 tf.summary.import_event(tf.compat.v1.Event(summary=summary_end).SerializeToString())
 
@@ -142,6 +141,46 @@ class DeepQLearningHyperoptTest(TestCase):
                  ]
         # minimize the values
         env = NormalizedObservationWrapper(gym.make('MountainCar-v0'))
+        best = fmin(self._experiment(env, log_dir), space, algo=tpe.suggest, max_evals=50)
+        print("best hyperparameters: alpha={}, alpha_decay={}, gamma={:.3f}, init_epsilon:{}, batch_norm:{}".format(best['alpha'],
+            best['alpha_decay'], best['gamma'], best['init_epsilon'], best['batch_norm']))
+
+        # all hyper parameters are know after all experiments
+        exp_summary = self._create_experiment_summary()
+        root_writer = tf.summary.create_file_writer(log_dir)
+        with root_writer.as_default():
+            tf.summary.import_event(tf.compat.v1.Event(summary=exp_summary).SerializeToString())
+
+    def test_reinforce_LunarLander(self):
+        log_dir = "/tmp/logdir/LunarLander-v2"
+
+        space = [hp.loguniform('alpha', math.log(1e-4), math.log(1e-2)), hp.uniform('alpha_decay', .995, .999),
+                 hp.uniform('gamma', .99, .998), hp.uniform('init_epsilon', 0.0, 0.5),
+                 hp.uniform('n_exploration_episodes', 0, 500),
+                 hp.choice('batch_norm', [True, False])
+                 ]
+        # minimize the values
+        env = NormalizedObservationWrapper(gym.make('LunarLander-v2'))
+        best = fmin(self._experiment(env, log_dir), space, algo=tpe.suggest, max_evals=50)
+        print("best hyperparameters: alpha={}, alpha_decay={}, gamma={:.3f}, init_epsilon:{}, batch_norm:{}".format(best['alpha'],
+            best['alpha_decay'], best['gamma'], best['init_epsilon'], best['batch_norm']))
+
+        # all hyper parameters are know after all experiments
+        exp_summary = self._create_experiment_summary()
+        root_writer = tf.summary.create_file_writer(log_dir)
+        with root_writer.as_default():
+            tf.summary.import_event(tf.compat.v1.Event(summary=exp_summary).SerializeToString())
+
+    def test_reinforce_BipedalWalker(self):
+        log_dir = "/tmp/logdir/BipedalWalker-v2"
+
+        space = [hp.loguniform('alpha', math.log(1e-4), math.log(1e-2)), hp.uniform('alpha_decay', .995, .999),
+                 hp.uniform('gamma', .99, .998), hp.uniform('init_epsilon', 0.0, 0.5),
+                 hp.uniform('n_exploration_episodes', 0, 500),
+                 hp.choice('batch_norm', [True, False])
+                 ]
+        # minimize the values
+        env = NormalizedObservationWrapper(gym.make('BipedalWalker-v2'))
         best = fmin(self._experiment(env, log_dir), space, algo=tpe.suggest, max_evals=50)
         print("best hyperparameters: alpha={}, alpha_decay={}, gamma={:.3f}, init_epsilon:{}, batch_norm:{}".format(best['alpha'],
             best['alpha_decay'], best['gamma'], best['init_epsilon'], best['batch_norm']))
