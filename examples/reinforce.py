@@ -2,6 +2,7 @@ import tensorflow as tf
 from examples.rl_model import *
 from collections import defaultdict, deque
 from gym.spaces import Discrete
+
 import random
 from tensorboard.plugins.hparams import summary as hparams_summary
 #tf.enable_eager_execution()

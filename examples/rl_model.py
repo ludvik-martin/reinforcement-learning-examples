@@ -5,6 +5,7 @@ import numpy as np
 import os
 from gym import wrappers
 
+
 class RLModel(ABC):
     def __init__(self, env:gym.ObservationWrapper, alpha, alpha_decay, gamma=.99, init_epsilon = 1.0, min_epsilon = .01):
         '''
@@ -46,7 +47,7 @@ class RLModel(ABC):
 
     def visualise_cumulative_reward(self, num_episodes:int, video_folder:str):
         for i in range(num_episodes):
-            env = wrappers.Monitor(self.env, os.path.join(video_folder, str(i)), force=False, resume=False)
+            env = wrappers.Monitor(self.env, os.path.join(video_folder, str(i)), force=True)
             state = env.reset()
             # cumulative
             g = 0
