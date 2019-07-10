@@ -2,6 +2,7 @@ from abc import ABC
 from abc import abstractmethod
 import gym
 import numpy as np
+import os
 from gym import wrappers
 
 class RLModel(ABC):
@@ -43,9 +44,9 @@ class RLModel(ABC):
         return sum(rewards) / len(rewards)
 
 
-    def visualise_cumulative_reward(self, num_episodes:int):
-        env = wrappers.Monitor(self.env, "/tmp/gym-results", force=True)
+    def visualise_cumulative_reward(self, num_episodes:int, video_folder:str):
         for i in range(num_episodes):
+            env = wrappers.Monitor(self.env, os.path.join(video_folder, str(i)), force=False, resume=False)
             state = env.reset()
             # cumulative
             g = 0

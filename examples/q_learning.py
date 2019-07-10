@@ -6,13 +6,13 @@ from examples.gym_utils import DiscretizedObservationWrapper
 import numpy as np
 
 class QLearning(RLModel):
-    def __init__(self, env, alpha, gamma=.99, init_epsilon = 1.0, min_epsilon = .01):
+    def __init__(self, env, alpha, alpha_decay=0.998, gamma=.99, init_epsilon = 1.0, min_epsilon = .01):
         assert isinstance(env.action_space, Discrete)
         if isinstance(env.observation_space, Box):
             env = DiscretizedObservationWrapper(env)
         else:
             assert isinstance(env.observation_space, Discrete)
-        super().__init__(env, alpha, gamma, init_epsilon, min_epsilon)
+        super().__init__(env, alpha=alpha, alpha_decay=alpha_decay, gamma=gamma, init_epsilon=init_epsilon, min_epsilon=min_epsilon)
         # dict with default value 0.0
         self.Q = defaultdict(float)
         self.actions = range(env.action_space.n)
@@ -25,9 +25,9 @@ class QLearning(RLModel):
         action = np.random.choice(greedy_actions)
         return action
 
-    def training_episode_impl(self, episode_lenght):
+    def training_episode_impl(self, episode_lenght, debug=False):
         for i in range(episode_lenght):
-            self.action = self.greedy_action(self.state)
+            self.action = self.epsilon_greedy_action(self.state)
 
             next_state, reward, done, _ = self.env.step(self.action)
             if (done):

@@ -24,6 +24,7 @@ class DeepQLearningHyperoptTest(TestCase):
         self._init_epsilon_list = []
         self._n_exploration_episodes = []
         self._batch_norm_list= []
+        self._log_dir = "/tmp/logdir/reinforce_cart_pole"
 
     def _create_experiment_summary(self):
         alpha_list_val = struct_pb2.ListValue()
@@ -75,7 +76,7 @@ class DeepQLearningHyperoptTest(TestCase):
             ]
         )
 
-    def _experiment(self, env):
+    def _experiment(self, env, log_dir):
         parent_self = self
         def _experiment_impl(args):
             alpha, alpha_decay, gamma, init_epsilon, n_exploration_episodes, batch_norm = args
@@ -87,7 +88,7 @@ class DeepQLearningHyperoptTest(TestCase):
             parent_self._n_exploration_episodes.append(n_exploration_episodes)
             parent_self._batch_norm_list.append(batch_norm)
 
-            writer = tf.summary.create_file_writer(parent_self._log_dir + "/alpha_{}_alpha_decay_{}_gamma_{:.3f}_init_eps{}_n_explor_{}_bn_{}"
+            writer = tf.summary.create_file_writer(log_dir + "/alpha_{}_alpha_decay_{}_gamma_{:.3f}_init_eps{}_n_explor_{}_bn_{}"
                                                    .format(alpha, alpha_decay, gamma, init_epsilon, n_exploration_episodes, batch_norm))
             with writer.as_default():
                 summary_start = hparams_summary.session_start_pb(hparams=hparams)
@@ -120,7 +121,7 @@ class DeepQLearningHyperoptTest(TestCase):
                 ]
         # minimize the values
         env = CartPoleRewardWrapper(gym.make('CartPole-v1'))
-        best = fmin(self._experiment(env), space, algo=tpe.suggest, max_evals=50)
+        best = fmin(self._experiment(env, log_dir), space, algo=tpe.suggest, max_evals=50)
         print("best hyperparameters: alpha={}, alpha_decay={}, gamma={:.3f}, init_epsilon:{}, batch_norm:{}".format(best['alpha'],
             best['alpha_decay'], best['gamma'], best['init_epsilon'], best['batch_norm']))
 
@@ -141,7 +142,7 @@ class DeepQLearningHyperoptTest(TestCase):
                  ]
         # minimize the values
         env = NormalizedObservationWrapper(gym.make('MountainCar-v0'))
-        best = fmin(self._experiment(env), space, algo=tpe.suggest, max_evals=50)
+        best = fmin(self._experiment(env, log_dir), space, algo=tpe.suggest, max_evals=50)
         print("best hyperparameters: alpha={}, alpha_decay={}, gamma={:.3f}, init_epsilon:{}, batch_norm:{}".format(best['alpha'],
             best['alpha_decay'], best['gamma'], best['init_epsilon'], best['batch_norm']))
 

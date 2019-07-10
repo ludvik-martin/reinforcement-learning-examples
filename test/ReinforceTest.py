@@ -26,7 +26,7 @@ class ReinforceTests(TestCase):
         writer = tf.summary.create_file_writer("/tmp/logdir/MountainCar-v0")
         reinforce = ReinforceNetwork(env, alpha=1e-3, alpha_decay=.998, min_epsilon=0, gamma=.99)
         #        num_episodes = 800
-        num_episodes = 10
+        num_episodes = 100
         for episode in range(num_episodes):
             reinforce.training_episode(debug=False)
 
