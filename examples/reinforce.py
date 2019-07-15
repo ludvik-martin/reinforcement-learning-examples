@@ -10,8 +10,8 @@ from tensorboard.plugins.hparams import summary as hparams_summary
 class BaselineModel(tf.keras.Model):
     def __init__(self):
         super().__init__()
-        self.dense1 = tf.keras.layers.Dense(units=32, activation=tf.nn.relu, kernel_initializer=tf.initializers.glorot_uniform())
-        self.dense2 = tf.keras.layers.Dense(units=32, activation=tf.nn.relu, kernel_initializer=tf.initializers.glorot_uniform())
+        self.dense1 = tf.keras.layers.Dense(units=64, activation=tf.nn.relu, kernel_initializer=tf.initializers.glorot_uniform())
+        self.dense2 = tf.keras.layers.Dense(units=64, activation=tf.nn.relu, kernel_initializer=tf.initializers.glorot_uniform())
         self.dense3 = tf.keras.layers.Dense(units=1)
 
     def call(self, state):
@@ -24,8 +24,8 @@ class ReinforceModel(tf.keras.Model):
     def __init__(self, action_space_size, batch_normalization):
         super().__init__()
         self._batch_normalization = batch_normalization
-        self.dense1 = tf.keras.layers.Dense(units=32, activation=tf.nn.relu, kernel_initializer=tf.initializers.glorot_uniform())
-        self.dense2 = tf.keras.layers.Dense(units=32, activation=tf.nn.relu, kernel_initializer=tf.initializers.glorot_uniform())
+        self.dense1 = tf.keras.layers.Dense(units=64, activation=tf.nn.relu, kernel_initializer=tf.initializers.glorot_uniform())
+        self.dense2 = tf.keras.layers.Dense(units=64, activation=tf.nn.relu, kernel_initializer=tf.initializers.glorot_uniform())
         self.dense3 = tf.keras.layers.Dense(units=action_space_size)
 
     def call(self, state, training):
@@ -102,8 +102,6 @@ class ReinforceNetwork(RLModel):
         with tf.GradientTape() as tape:
             v = self.baseline_model(batch_state)
             target = batch_cumulative_rewards  - v # advantage
-
-            # TODO it should probably be: mean_squared_error(r + gamma * v(s+1), v(s))
             baseline_loss = tf.reduce_mean(tf.math.squared_difference(batch_cumulative_rewards, v))
             tf.summary.scalar("baseline_loss", baseline_loss, step=self.step)
         baseline_grads = tape.gradient(baseline_loss, self.baseline_model.variables)
