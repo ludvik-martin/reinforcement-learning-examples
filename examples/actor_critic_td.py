@@ -2,6 +2,7 @@ import tensorflow as tf
 from examples.rl_model import *
 from collections import defaultdict, deque
 from gym.spaces import Discrete
+import statistics
 
 import random
 from tensorboard.plugins.hparams import summary as hparams_summary
@@ -43,7 +44,7 @@ class ReinforceModel(tf.keras.Model):
     def greedy_action(self, state):
         return tf.squeeze(tf.random.categorical(self(state, training=False), 1)).numpy()
 
-class ActorCriticNetwork(RLModel):
+class ActorCriticNetworkTD(RLModel):
     def __init__(self, env, alpha, alpha_decay, gamma=.99, init_epsilon = 1.0, min_epsilon = .01, batch_size = 32, batch_normalization = False, writer = None):
         assert isinstance(env.action_space, Discrete)
         super().__init__(env, alpha, alpha_decay, gamma, init_epsilon, min_epsilon)
@@ -77,49 +78,54 @@ class ActorCriticNetwork(RLModel):
 
         buffer = []
 
+        episode_rewards = []
         episode_reward = 0
-        for t in range(self.max_len_episode):
+        for t in range(episode_lenght):
             action = self.epsilon_greedy_action(self.state)
             next_state, reward, done, info = self.env.step(
                 action)  # Let the environment to execute the action, get the next state of the action, the reward of the action, whether the game is done and extra information.
-            next_action = self.greedy_action(next_state) #
+            next_action = self.greedy_action(next_state)
             buffer.append((self.state, action, reward, next_state, next_action,
                                               1 if done else 0))  # Put the (state, action, reward, next_state, next_action) quad back into the experience replay pool.
             episode_reward+=reward
             self.state = next_state
 
             if done:  # Exit this round and enter the next episode if the game is over.
-                # print("episode %d, epsilon %f, score %d" % (episode_id, epsilon, t))
-                break
+                self.state = self.env.reset()
+                episode_rewards.append(episode_reward)
 
-        batch_state, batch_action, batch_reward, batch_next_state, batch_next_action, batch_done = zip(*buffer)
-        batch_state, batch_reward, batch_next_state, batch_done = \
-            [np.array(a, dtype=np.float32) for a in [batch_state, batch_reward, batch_next_state, batch_done]]
-        batch_action = np.array(batch_action, dtype=np.int32)
-        batch_next_action = np.array(batch_next_action, dtype=np.int32)
+            if len(buffer) > self.batch_size:
+                batch = random.sample(buffer, self.batch_size)
+
+                batch_state, batch_action, batch_reward, batch_next_state, batch_next_action, batch_done = zip(*batch)
+                batch_state, batch_reward, batch_next_state, batch_done = \
+                    [np.array(a, dtype=np.float32) for a in [batch_state, batch_reward, batch_next_state, batch_done]]
+                batch_action = np.array(batch_action, dtype=np.int32)
+                batch_next_action = np.array(batch_next_action, dtype=np.int32)
+
+                with tf.GradientTape() as tape:
+                    target = self.critic_model(batch_state, batch_action)
+                    predicted = tf.stop_gradient(batch_reward + self.gamma * self.critic_model(batch_next_state, batch_next_action))
+                    critic_loss = tf.reduce_mean(tf.losses.mean_squared_error(target, predicted))
+                    tf.summary.scalar("critic_loss", critic_loss, step=self.step)
+                critic_grads = tape.gradient(critic_loss, self.critic_model.variables)
+                self.baseline_optimizer.apply_gradients(grads_and_vars=zip(critic_grads, self.critic_model.variables))
+
+                with tf.GradientTape() as tape:
+                    loss = tf.reduce_mean(
+                        tf.nn.sparse_softmax_cross_entropy_with_logits(labels=batch_action,
+                                                                       logits=self.model(batch_state, training=True)) *
+                        tf.stop_gradient(target)
+
+                    )
+                    tf.summary.scalar("loss", loss, step=self.step)
+                grads = tape.gradient(loss, self.model.variables)
+                self.optimizer.apply_gradients(grads_and_vars=zip(grads, self.model.variables))
+
 
         # cummulative reward for the whole episode
-        tf.summary.scalar("episode_reward", episode_reward, step=self.step)
+        tf.summary.scalar("episode_reward", statistics.mean(episode_rewards), step=self.step)
 
-        with tf.GradientTape() as tape:
-            target = self.critic_model(batch_state, batch_action)
-            advantage = target - tf.stop_gradient((batch_reward + self.gamma * self.critic_model(batch_next_state, batch_next_action)))
-            critic_loss = tf.reduce_mean(advantage)
-            tf.summary.scalar("critic_loss", critic_loss, step=self.step)
-        critic_grads = tape.gradient(critic_loss, self.critic_model.variables)
-        self.baseline_optimizer.apply_gradients(grads_and_vars=zip(critic_grads, self.critic_model.variables))
-
-
-        with tf.GradientTape() as tape:
-            loss = tf.reduce_mean(
-                tf.nn.sparse_softmax_cross_entropy_with_logits(labels=batch_action,
-                                                               logits=self.model(batch_state, training=True)) *
-                tf.stop_gradient(target)
-
-            )
-            tf.summary.scalar("loss", loss, step=self.step)
-        grads = tape.gradient(loss, self.model.variables)
-        self.optimizer.apply_gradients(grads_and_vars=zip(grads, self.model.variables))
 
         if debug:
             self.reward_history.append(episode_reward)
